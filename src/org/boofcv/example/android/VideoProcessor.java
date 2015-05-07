@@ -3,6 +3,7 @@ package org.boofcv.example.android;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.hardware.Camera;
+import android.util.Log;
 import boofcv.abst.filter.derivative.ImageGradient;
 import boofcv.alg.color.ColorYuv;
 import boofcv.alg.misc.GImageMiscOps;
@@ -11,6 +12,9 @@ import boofcv.android.ConvertNV21;
 import boofcv.android.VisualizeImageData;
 import boofcv.factory.filter.derivative.FactoryDerivative;
 import boofcv.struct.image.*;
+
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 /**
  * Created by denny on 5/7/15.
@@ -42,6 +46,7 @@ public class VideoProcessor {
                 new MultiSpectral<ImageFloat32>(ImageFloat32.class,s.width,s.height,3)
         );
         rgb = new MultiSpectral<ImageFloat32>(ImageFloat32.class,s.width,s.height,3);
+        //Arrays.fill( rgb.getBand(3).data, 1);
         derivX = new ImageSInt16(s.width,s.height);
         derivY = new ImageSInt16(s.width,s.height);
 
@@ -52,10 +57,11 @@ public class VideoProcessor {
 
     public void backgroundProcess(boolean flipHorizontal) {
         gray.swapBufs();
+        yuv.swapBufs();
 
         if( flipHorizontal ) {
             GImageMiscOps.flipHorizontal(gray.readBuf);
-            //GImageMiscOps.flipHorizontal(yuv.readBuf);
+            GImageMiscOps.flipHorizontal(yuv.readBuf);
         }
 
 //        ColorYuv.yuvToRgb_F32(yuv.readBuf, rgb);
@@ -78,11 +84,15 @@ public class VideoProcessor {
         synchronized ( lockOutput ) {
             VisualizeImageData.colorizeGradient(derivX, derivY, -1, output, storage);
             //ConvertBitmap.multiToBitmap(yuv.readBuf, output, storage);
+            //ConvertBitmap.multiToBitmap(rgb, output, storage);
+            //multiToBitmap_F32(rgb, storage, output);
             int w = output.getWidth();
-            for( int x=0; x<w-1; x++ ){
-//                if( isBlue ) {
-                    output.setPixel(x, 100, Color.BLUE);
-  //              }
+            for( int y=100; y<110; y++ ) {
+                for (int x = 0; x < w - 1; x++) {
+                    // if( isBlue ) {
+                    output.setPixel(x, y, Color.BLUE);
+                    //}
+                }
             }
         }
 
@@ -126,12 +136,28 @@ public class VideoProcessor {
     }
 
     public void onPreviewFrame(byte[] bytes){
-        // convert from NV21 format into gray scale
-        synchronized (gray.lock) {
-            ConvertNV21.nv21ToGray(bytes, gray.writeBuf.width, gray.writeBuf.height, gray.writeBuf);
-            ConvertNV21.nv21ToMsYuv_F32(bytes, yuv.writeBuf.width, yuv.writeBuf.height, yuv.writeBuf);
-        }
+        try {
+            synchronized (gray.lock) {
+                // convert from NV21 format into gray scale
+                ConvertNV21.nv21ToGray(bytes, gray.writeBuf.width, gray.writeBuf.height, gray.writeBuf);
+                ConvertNV21.nv21ToMsYuv_F32(bytes, yuv.writeBuf.width, yuv.writeBuf.height, yuv.writeBuf);
 
+
+
+
+
+                // ConvertNV21.nv21ToMsRgb_F32() - rgb is the way to go?
+
+
+
+
+                
+
+
+            }
+        }catch(Throwable t){
+            Log.w("VideoProcessor","onPreviewFrame",t);
+        }
     }
 
     void get(MultiSpectral<ImageFloat32> img, int x, int y, RGBf dest){
@@ -159,49 +185,29 @@ public class VideoProcessor {
     public Object getLockOutput() {
         return lockOutput;
     }
-/*
-    public static void toBitmap( MultiSpectral<ImageFloat32> img , Bitmap output , byte[] storage ) {
-        shapeShape(img, output);
 
-        if( storage == null )
-            storage = declareStorage(output,null);
+    public static void multiToBitmap_F32(MultiSpectral<ImageFloat32> input, byte[] storage , Bitmap output ) {
+        final int h = input.height;
+        final int w = input.width;
+
+        ImageFloat32 R = input.getBand(0);
+        ImageFloat32 G = input.getBand(1);
+        ImageFloat32 B = input.getBand(2);
 
         int indexDst = 0;
 
-        if( invert ) {
-            for (int y = 0; y < binary.height; y++) {
-                int indexSrc = binary.startIndex + y * binary.stride;
-                for (int x = 0; x < binary.width; x++) {
-                    int value = (1-binary.data[indexSrc++]) * 255;
-
-                    storage[indexDst++] = (byte) value;
-                    storage[indexDst++] = (byte) value;
-                    storage[indexDst++] = (byte) value;
-                    storage[indexDst++] = (byte) 0xFF;
-                }
-            }
-        } else {
-            for (int y = 0; y < binary.height; y++) {
-                int indexSrc = binary.startIndex + y * binary.stride;
-                for (int x = 0; x < binary.width; x++) {
-                    int value = binary.data[indexSrc++] * 255;
-
-                    storage[indexDst++] = (byte) value;
-                    storage[indexDst++] = (byte) value;
-                    storage[indexDst++] = (byte) value;
-                    storage[indexDst++] = (byte) 0xFF;
-                }
+        for (int y = 0; y < h; y++) {
+            int indexSrc = input.startIndex + y * input.stride;
+            for (int x = 0; x < w; x++, indexSrc++) {
+                storage[indexDst++] = (byte) (R.data[indexSrc]);
+                storage[indexDst++] = (byte) (G.data[indexSrc]);
+                storage[indexDst++] = (byte) (B.data[indexSrc]);
+                storage[indexDst++] = (byte) 255;
             }
         }
 
         output.copyPixelsFromBuffer(ByteBuffer.wrap(storage));
-    }
-    private static void shapeShape(ImageBase input, Bitmap output) {
-        if( output.getConfig() != Bitmap.Config.ARGB_8888 )
-            throw new IllegalArgumentException("Only ARGB_8888 is supported");
-        if( input.width != output.getWidth() || input.height != output.getHeight() )
-            throw new IllegalArgumentException("Input and output must have the same shape");
-    }*/
 
+    }
 
 }

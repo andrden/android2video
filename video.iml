@@ -62,6 +62,7 @@
         <SOURCES />
       </library>
     </orderEntry>
+    <orderEntry type="library" name="BoofCV-android-0.18" level="project" />
   </component>
 </module>
 

@@ -32,14 +32,13 @@ import android.view.SurfaceView;
 import android.view.Window;
 import android.widget.FrameLayout;
 import boofcv.abst.filter.derivative.ImageGradient;
+import boofcv.alg.color.ColorYuv;
 import boofcv.alg.misc.GImageMiscOps;
 import boofcv.android.ConvertBitmap;
 import boofcv.android.ConvertNV21;
 import boofcv.android.VisualizeImageData;
 import boofcv.factory.filter.derivative.FactoryDerivative;
-import boofcv.struct.image.ImageSInt16;
-import boofcv.struct.image.ImageUInt8;
-import boofcv.struct.image.MultiSpectral;
+import boofcv.struct.image.*;
 
 import java.util.List;
 
@@ -58,49 +57,12 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
     private Camera mCamera;
     private Visualization mDraw;
     private CameraPreview mPreview;
+    VideoProcessor videoProcessor;
 
-    // computes the image gradient
-    private ImageGradient<ImageUInt8,ImageSInt16> gradient = FactoryDerivative.three(ImageUInt8.class, ImageSInt16.class);
-
-    static class BufRW<T>{
-        // Two images are needed to store the converted preview image to prevent a thread conflict from occurring
-        T readBuf;
-        T writeBuf;
-
-        // Object used for synchronizing swap
-        private final Object lock = new Object();
-        BufRW(T b1, T b2){
-            readBuf = b1;
-            writeBuf = b2;
-        }
-
-
-        public void swapBufs() {
-            // process the most recently converted image by swapping image buffered
-            synchronized (lock) {
-                T tmp = readBuf;
-                readBuf = writeBuf;
-                writeBuf = tmp;
-            }
-
-        }
-    }
-    private BufRW<ImageUInt8> gray;
-    private BufRW<MultiSpectral<ImageUInt8>> yuv;
-
-
-    private ImageSInt16 derivX,derivY;
-
-    // Android image data used for displaying the results
-    private Bitmap output;
-    // temporary storage that's needed when converting from BoofCV to Android image data types
-    private byte[] storage;
 
     // Thread where image data is processed
     private ThreadProcess thread;
 
-    // Object used for synchronizing output image
-    private final Object lockOutput = new Object();
 
     // if true the input image is flipped horizontally
     // Front facing cameras need to be flipped to appear correctly
@@ -128,6 +90,7 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
     @Override
     protected void onResume() {
         super.onResume();
+        Log.w("VideoActivity", "onResume");
         setUpAndConfigureCamera();
     }
 
@@ -164,16 +127,9 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
         param.setPreviewSize(s.width,s.height);
         mCamera.setParameters(param);
 
-        // declare image data
-        gray = new BufRW<ImageUInt8>( new ImageUInt8(s.width,s.height), new ImageUInt8(s.width,s.height) );
-        yuv = new BufRW<MultiSpectral<ImageUInt8>>(
-                new MultiSpectral<ImageUInt8>(ImageUInt8.class,s.width,s.height,3),
-                new MultiSpectral<ImageUInt8>(ImageUInt8.class,s.width,s.height,3)
-        );
-        derivX = new ImageSInt16(s.width,s.height);
-        derivY = new ImageSInt16(s.width,s.height);
-        output = Bitmap.createBitmap(s.width,s.height,Bitmap.Config.ARGB_8888 );
-        storage = ConvertBitmap.declareStorage(output, storage);
+        Log.w("VideoActivity", "chosen preview size "+s.width + " x "+s.height);
+
+        videoProcessor = new VideoProcessor(s);
 
         // start image processing thread
         thread = new ThreadProcess();
@@ -262,11 +218,7 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
     @Override
     public void onPreviewFrame(byte[] bytes, Camera camera) {
 
-        // convert from NV21 format into gray scale
-        synchronized (gray.lock) {
-            ConvertNV21.nv21ToGray(bytes,gray.writeBuf.width,gray.writeBuf.height,gray.writeBuf);
-            //ConvertNV21.nv21ToMsYuv_U8(bytes,yuv.writeBuf.width,yuv.writeBuf.height,yuv.writeBuf);
-        }
+        videoProcessor.onPreviewFrame(bytes);
 
         // Can only do trivial amounts of image processing inside this function or else bad stuff happens.
         // To work around this issue most of the processing has been pushed onto a thread and the call below
@@ -293,9 +245,11 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
         @Override
         protected void onDraw(Canvas canvas){
 
-            synchronized ( lockOutput ) {
+            synchronized ( videoProcessor.getLockOutput() ) {
                 int w = canvas.getWidth();
                 int h = canvas.getHeight();
+
+                Bitmap output = videoProcessor.getOutput();
 
                 // fill the window and center it
                 double scaleX = w/(double)output.getWidth();
@@ -347,25 +301,12 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
                     } catch (InterruptedException ignored) {}
                 }
 
-                gray.swapBufs();
+                videoProcessor.backgroundProcess(flipHorizontal);
 
-                if( flipHorizontal )
-                    GImageMiscOps.flipHorizontal(gray.readBuf);
-
-                // process the image and compute its gradient
-                gradient.process(gray.readBuf,derivX,derivY);
-
-                // render the output in a synthetic color image
-                synchronized ( lockOutput ) {
-                    VisualizeImageData.colorizeGradient(derivX,derivY,-1,output,storage);
-                    int w = output.getWidth();
-                    for( int x=0; x<w-1; x++ ){
-                        output.setPixel(x, 100, Color.BLUE);
-                    }
-                }
                 mDraw.postInvalidate();
             }
             running = false;
         }
     }
+
 }
