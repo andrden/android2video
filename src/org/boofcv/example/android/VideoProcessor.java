@@ -5,7 +5,6 @@ import android.graphics.Color;
 import android.hardware.Camera;
 import android.util.Log;
 import boofcv.abst.filter.derivative.ImageGradient;
-import boofcv.alg.color.ColorYuv;
 import boofcv.alg.misc.GImageMiscOps;
 import boofcv.android.ConvertBitmap;
 import boofcv.android.ConvertNV21;
@@ -14,18 +13,18 @@ import boofcv.factory.filter.derivative.FactoryDerivative;
 import boofcv.struct.image.*;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 
 /**
  * Created by denny on 5/7/15.
  */
 public class VideoProcessor {
-    private BufRW<ImageUInt8> gray;
-    private BufRW<MultiSpectral<ImageFloat32>> yuv;
+    //private BufRW<ImageUInt8> gray;
+    //private BufRW<MultiSpectral<ImageFloat32>> yuv;
+    private BufRW<MultiSpectral<ImageUInt8>> rgbInt;
 
 
     private ImageSInt16 derivX,derivY;
-    MultiSpectral<ImageFloat32> rgb;
+    //MultiSpectral<ImageFloat32> rgb;
 
     // Object used for synchronizing output image
     private final Object lockOutput = new Object();
@@ -40,12 +39,16 @@ public class VideoProcessor {
 
     public VideoProcessor(Camera.Size s) {
         // declare image data
-        gray = new BufRW<ImageUInt8>( new ImageUInt8(s.width,s.height), new ImageUInt8(s.width,s.height) );
-        yuv = new BufRW<MultiSpectral<ImageFloat32>>(
-                new MultiSpectral<ImageFloat32>(ImageFloat32.class,s.width,s.height,3),
-                new MultiSpectral<ImageFloat32>(ImageFloat32.class,s.width,s.height,3)
+//        gray = new BufRW<ImageUInt8>( new ImageUInt8(s.width,s.height), new ImageUInt8(s.width,s.height) );
+//        yuv = new BufRW<MultiSpectral<ImageFloat32>>(
+//                new MultiSpectral<ImageFloat32>(ImageFloat32.class,s.width,s.height,3),
+//                new MultiSpectral<ImageFloat32>(ImageFloat32.class,s.width,s.height,3)
+//        );
+        rgbInt = new BufRW<MultiSpectral<ImageUInt8>>(
+                new MultiSpectral<ImageUInt8>(ImageUInt8.class,s.width,s.height,3),
+                new MultiSpectral<ImageUInt8>(ImageUInt8.class,s.width,s.height,3)
         );
-        rgb = new MultiSpectral<ImageFloat32>(ImageFloat32.class,s.width,s.height,3);
+        //rgb = new MultiSpectral<ImageFloat32>(ImageFloat32.class,s.width,s.height,3);
         //Arrays.fill( rgb.getBand(3).data, 1);
         derivX = new ImageSInt16(s.width,s.height);
         derivY = new ImageSInt16(s.width,s.height);
@@ -56,29 +59,32 @@ public class VideoProcessor {
     }
 
     public void backgroundProcess(boolean flipHorizontal) {
-        gray.swapBufs();
-        yuv.swapBufs();
+        //gray.syncSwapBufs();
+        //yuv.syncSwapBufs();
+        rgbInt.syncSwapBufs();
 
         if( flipHorizontal ) {
-            GImageMiscOps.flipHorizontal(gray.readBuf);
-            GImageMiscOps.flipHorizontal(yuv.readBuf);
+          //  GImageMiscOps.flipHorizontal(gray.readBuf);
+            //GImageMiscOps.flipHorizontal(yuv.readBuf);
+            GImageMiscOps.flipHorizontal(rgbInt.readBuf);
         }
 
 //        ColorYuv.yuvToRgb_F32(yuv.readBuf, rgb);
-//        RGBf pixel = new RGBf();
-//        RGBf blue = new RGBf(0,0,1);
-//        int numClose=0;
-//        int numAll = rgb.getBand(0).data.length;
-//        for( int i=0; i<numAll; i++ ){
-//            get(rgb, i, pixel);
-//            if( close(pixel, blue) ){
-//                numClose++;
-//            }
-//        }
-//        boolean isBlue = numClose > numAll * 0.5;
+        RGBi pixel = new RGBi();
+        RGBi blue = new RGBi(0,0,255);
+        int numClose=0;
+
+        int numAll = rgbInt.readBuf.getBand(0).data.length;
+        for( int i=0; i<numAll; i++ ){
+            get(rgbInt.readBuf, i, pixel);
+            if( close(pixel, blue) ){
+                numClose++;
+            }
+        }
+        boolean isBlue = numClose > numAll * 0.1;
 
         // process the image and compute its gradient
-        gradient.process(gray.readBuf,derivX,derivY);
+       // gradient.process(gray.readBuf,derivX,derivY);
 
         // render the output in a synthetic color image
         synchronized ( lockOutput ) {
@@ -86,12 +92,13 @@ public class VideoProcessor {
             //ConvertBitmap.multiToBitmap(yuv.readBuf, output, storage);
             //ConvertBitmap.multiToBitmap(rgb, output, storage);
             //multiToBitmap_F32(rgb, storage, output);
+           ConvertBitmap.multiToBitmap(rgbInt.readBuf, output, storage);
             int w = output.getWidth();
             for( int y=100; y<110; y++ ) {
                 for (int x = 0; x < w - 1; x++) {
-                    // if( isBlue ) {
-                    output.setPixel(x, y, Color.BLUE);
-                    //}
+                    if( isBlue ) {
+                      output.setPixel(x, y, Color.BLUE);
+                    }
                 }
             }
         }
@@ -111,6 +118,19 @@ public class VideoProcessor {
         }
     }
 
+    static class RGBi{
+        int r,g,b;
+
+        RGBi() {
+        }
+
+        RGBi(int r, int g, int b) {
+            this.r = r;
+            this.g = g;
+            this.b = b;
+        }
+    }
+
     static class BufRW<T>{
         // Two images are needed to store the converted preview image to prevent a thread conflict from occurring
         T readBuf;
@@ -124,7 +144,7 @@ public class VideoProcessor {
         }
 
 
-        public void swapBufs() {
+        public void syncSwapBufs() {
             // process the most recently converted image by swapping image buffered
             synchronized (lock) {
                 T tmp = readBuf;
@@ -137,23 +157,13 @@ public class VideoProcessor {
 
     public void onPreviewFrame(byte[] bytes){
         try {
-            synchronized (gray.lock) {
-                // convert from NV21 format into gray scale
-                ConvertNV21.nv21ToGray(bytes, gray.writeBuf.width, gray.writeBuf.height, gray.writeBuf);
-                ConvertNV21.nv21ToMsYuv_F32(bytes, yuv.writeBuf.width, yuv.writeBuf.height, yuv.writeBuf);
-
-
-
-
-
-                // ConvertNV21.nv21ToMsRgb_F32() - rgb is the way to go?
-
-
-
-
-                
-
-
+//            synchronized (gray.lock) {
+//                // convert from NV21 format into gray scale
+//                ConvertNV21.nv21ToGray(bytes, gray.writeBuf.width, gray.writeBuf.height, gray.writeBuf);
+//            }
+//            ConvertNV21.nv21ToMsYuv_F32(bytes, yuv.writeBuf.width, yuv.writeBuf.height, yuv.writeBuf);
+            synchronized (rgbInt.lock) {
+                ConvertNV21.nv21ToMsRgb_U8(bytes, rgbInt.writeBuf.width, rgbInt.writeBuf.height, rgbInt.writeBuf);
             }
         }catch(Throwable t){
             Log.w("VideoProcessor","onPreviewFrame",t);
@@ -165,16 +175,33 @@ public class VideoProcessor {
         dest.g = img.getBand(1).get(x,y);
         dest.b = img.getBand(2).get(x,y);
     }
+    void get(MultiSpectral<ImageUInt8> img, int x, int y, RGBi dest){
+        dest.r = img.getBand(0).get(x,y);
+        dest.g = img.getBand(1).get(x,y);
+        dest.b = img.getBand(2).get(x,y);
+    }
     void get(MultiSpectral<ImageFloat32> img, int idx, RGBf dest){
         dest.r = img.getBand(0).data[idx];
         dest.g = img.getBand(1).data[idx];
         dest.b = img.getBand(2).data[idx];
+    }
+    void get(MultiSpectral<ImageUInt8> img, int idx, RGBi dest){
+        dest.r = img.getBand(0).data[idx] & 0xFF;
+        dest.g = img.getBand(1).data[idx] & 0xFF;
+        dest.b = img.getBand(2).data[idx] & 0xFF;
     }
 
     boolean close(RGBf c1 , RGBf c2){
         if( Math.abs(c1.r-c2.r)>0.5 ) return false;
         if( Math.abs(c1.g-c2.g)>0.5 ) return false;
         if( Math.abs(c1.b-c2.b)>0.5 ) return false;
+        return true;
+    }
+
+    boolean close(RGBi c1 , RGBi c2){
+        if( Math.abs(c1.r-c2.r)>128 ) return false;
+        if( Math.abs(c1.g-c2.g)>128 ) return false;
+        if( Math.abs(c1.b-c2.b)>128 ) return false;
         return true;
     }
 
