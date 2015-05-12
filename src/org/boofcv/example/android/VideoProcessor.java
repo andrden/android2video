@@ -37,7 +37,10 @@ public class VideoProcessor {
     // computes the image gradient
     private ImageGradient<ImageUInt8,ImageSInt16> gradient = FactoryDerivative.three(ImageUInt8.class, ImageSInt16.class);
 
-    public VideoProcessor(Camera.Size s) {
+    Notific notific;
+
+    public VideoProcessor(Camera.Size s, Notific notific) {
+        this.notific = notific;
         // declare image data
 //        gray = new BufRW<ImageUInt8>( new ImageUInt8(s.width,s.height), new ImageUInt8(s.width,s.height) );
 //        yuv = new BufRW<MultiSpectral<ImageFloat32>>(
@@ -82,6 +85,9 @@ public class VideoProcessor {
             }
         }
         boolean isBlue = numClose > numAll * 0.1;
+        if( isBlue ){
+            notific.state(Notific.State.BLUE);
+        }
 
         // process the image and compute its gradient
        // gradient.process(gray.readBuf,derivX,derivY);

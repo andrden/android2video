@@ -57,6 +57,7 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
     private Camera mCamera;
     private Visualization mDraw;
     private CameraPreview mPreview;
+    Notific notific;
     VideoProcessor videoProcessor;
 
 
@@ -129,7 +130,8 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
 
         Log.w("VideoActivity", "chosen preview size "+s.width + " x "+s.height);
 
-        videoProcessor = new VideoProcessor(s);
+        notific = new Notific(this);
+        videoProcessor = new VideoProcessor(s, notific);
 
         // start image processing thread
         thread = new ThreadProcess();
