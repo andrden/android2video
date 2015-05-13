@@ -27,6 +27,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.hardware.Camera;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.view.Window;
@@ -52,7 +53,7 @@ import java.util.List;
  * @author Peter Abeles
  */
 public class VideoActivity extends Activity implements Camera.PreviewCallback {
-
+    Handler handler;
     // camera and display objects
     private Camera mCamera;
     private Visualization mDraw;
@@ -73,6 +74,7 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        handler=new Handler();
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.video);
 
@@ -130,7 +132,7 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
 
         Log.w("VideoActivity", "chosen preview size "+s.width + " x "+s.height);
 
-        notific = new Notific(this);
+        notific = new Notific(this, handler);
         videoProcessor = new VideoProcessor(s, notific);
 
         // start image processing thread

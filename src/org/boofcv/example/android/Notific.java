@@ -3,6 +3,7 @@ package org.boofcv.example.android;
 import android.content.Context;
 import android.media.AudioManager;
 import android.media.SoundPool;
+import android.os.Handler;
 
 import java.util.HashMap;
 
@@ -13,13 +14,14 @@ public class Notific {
     SoundPool soundPool;
     HashMap<Integer, Integer> soundPoolMap;
     AudioManager audioManager;
+    Handler handler;
 
     long silentTill=0;
     long lastState=0;
 
     enum State{
         RED(R.raw.red),
-        GREEN(R.raw.blue),
+        GREEN(R.raw.green),
         BLUE(R.raw.blue)
         ;
         final int resid;
@@ -29,7 +31,8 @@ public class Notific {
         }
     }
 
-    public Notific(Context context) {
+    public Notific(Context context, Handler handler) {
+        this.handler=handler;
         audioManager = (AudioManager)context.getSystemService(Context.AUDIO_SERVICE);
         soundPool = new SoundPool(4, AudioManager.STREAM_MUSIC, 100);
         soundPoolMap = new HashMap<Integer, Integer>();
@@ -38,9 +41,13 @@ public class Notific {
         }
     }
 
-    void state(State state){
+    void state(final State state){
         if( System.currentTimeMillis() > silentTill && System.currentTimeMillis() - lastState > 2000 ){
-            sound(state.resid);
+            handler.post(new Runnable(){
+                public void run(){
+                    sound(state.resid);
+                }
+            });
             silentTill = System.currentTimeMillis() + 3000;
         }
         lastState = System.currentTimeMillis();
