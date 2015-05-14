@@ -21,15 +21,19 @@ package org.boofcv.example.android;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.hardware.Camera;
+import android.media.AudioManager;
+import android.media.SoundPool;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
 import android.view.SurfaceView;
+import android.view.View;
 import android.view.Window;
 import android.widget.FrameLayout;
 import boofcv.abst.filter.derivative.ImageGradient;
@@ -41,6 +45,7 @@ import boofcv.android.VisualizeImageData;
 import boofcv.factory.filter.derivative.FactoryDerivative;
 import boofcv.struct.image.*;
 
+import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -70,9 +75,37 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
     // Front facing cameras need to be flipped to appear correctly
     boolean flipHorizontal;
 
+    SoundPool soundPool;
+    HashMap<Integer, Integer> soundPoolMap;
+    int CLICK = 1;
+
+    public void click1(View view) {
+        sound(CLICK);
+    }
+
+    void sound(int id){
+        //view.setEnabled(false);
+
+        AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        float curVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
+        float maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        float leftVolume = curVolume/maxVolume;
+        float rightVolume = curVolume/maxVolume;
+        int priority = 1;
+        int no_loop = 0;
+        float normal_playback_rate = 1f;
+        soundPool.play(id, leftVolume, rightVolume, priority, no_loop, normal_playback_rate);
+
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        soundPool = new SoundPool(4, AudioManager.STREAM_MUSIC, 100);
+        soundPoolMap = new HashMap<Integer, Integer>();
+
+        soundPoolMap.put(CLICK, soundPool.load(this, R.raw.sndclick1, 1));
 
         handler=new Handler();
         requestWindowFeature(Window.FEATURE_NO_TITLE);
