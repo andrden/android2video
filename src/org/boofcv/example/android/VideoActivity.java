@@ -75,37 +75,18 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
     // Front facing cameras need to be flipped to appear correctly
     boolean flipHorizontal;
 
-    SoundPool soundPool;
-    HashMap<Integer, Integer> soundPoolMap;
-    int CLICK = 1;
+    Sounds sounds;
 
     public void click1(View view) {
-        sound(CLICK);
+        sounds.sound(State.CLICK);
     }
 
-    void sound(int id){
-        //view.setEnabled(false);
-
-        AudioManager audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
-        float curVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC);
-        float maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        float leftVolume = curVolume/maxVolume;
-        float rightVolume = curVolume/maxVolume;
-        int priority = 1;
-        int no_loop = 0;
-        float normal_playback_rate = 1f;
-        soundPool.play(id, leftVolume, rightVolume, priority, no_loop, normal_playback_rate);
-
-    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        soundPool = new SoundPool(4, AudioManager.STREAM_MUSIC, 100);
-        soundPoolMap = new HashMap<Integer, Integer>();
-
-        soundPoolMap.put(CLICK, soundPool.load(this, R.raw.sndclick1, 1));
+        sounds = new Sounds(this);
 
         handler=new Handler();
         requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -165,7 +146,7 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
 
         Log.w("VideoActivity", "chosen preview size "+s.width + " x "+s.height);
 
-        notific = new Notific(this, handler);
+        notific = new Notific(sounds);
         videoProcessor = new VideoProcessor(s, notific);
 
         // start image processing thread

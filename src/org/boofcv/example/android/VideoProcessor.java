@@ -86,7 +86,7 @@ public class VideoProcessor {
         }
         boolean isBlue = numClose > numAll * 0.1;
         if( isBlue ){
-            notific.state(Notific.State.BLUE);
+            notific.state(State.BLUE);
         }
 
         // process the image and compute its gradient
