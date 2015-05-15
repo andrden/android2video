@@ -23,7 +23,7 @@ public class VideoProcessor {
     private BufRW<MultiSpectral<ImageUInt8>> rgbInt;
 
 
-    private ImageSInt16 derivX,derivY;
+    //private ImageSInt16 derivX,derivY;
     //MultiSpectral<ImageFloat32> rgb;
 
     // Object used for synchronizing output image
@@ -53,12 +53,29 @@ public class VideoProcessor {
         );
         //rgb = new MultiSpectral<ImageFloat32>(ImageFloat32.class,s.width,s.height,3);
         //Arrays.fill( rgb.getBand(3).data, 1);
-        derivX = new ImageSInt16(s.width,s.height);
-        derivY = new ImageSInt16(s.width,s.height);
+        //derivX = new ImageSInt16(s.width,s.height);
+        //derivY = new ImageSInt16(s.width,s.height);
 
         output = Bitmap.createBitmap(s.width,s.height,Bitmap.Config.ARGB_8888 );
         storage = ConvertBitmap.declareStorage(output, storage);
 
+    }
+
+    class PixelStats{
+        State state;
+        RGBi target;
+        int numClose=0;
+
+        PixelStats(State state, RGBi target) {
+            this.state = state;
+            this.target = target;
+        }
+
+        void update(RGBi pixel){
+            if( close(pixel, target) ){
+                numClose++;
+            }
+        }
     }
 
     public void backgroundProcess(boolean flipHorizontal) {
@@ -72,21 +89,35 @@ public class VideoProcessor {
             GImageMiscOps.flipHorizontal(rgbInt.readBuf);
         }
 
-//        ColorYuv.yuvToRgb_F32(yuv.readBuf, rgb);
+        PixelStats[] colors = {
+            new PixelStats(State.RED, new RGBi(255,0,0)),
+            new PixelStats(State.GREEN, new RGBi(0,255,0)),
+            new PixelStats(State.BLUE, new RGBi(0,0,255)),
+        };
         RGBi pixel = new RGBi();
-        RGBi blue = new RGBi(0,0,255);
-        int numClose=0;
 
         int numAll = rgbInt.readBuf.getBand(0).data.length;
         for( int i=0; i<numAll; i++ ){
             get(rgbInt.readBuf, i, pixel);
-            if( close(pixel, blue) ){
-                numClose++;
+            for( PixelStats ps : colors ){
+                ps.update(pixel);
             }
         }
-        boolean isBlue = numClose > numAll * 0.1;
-        if( isBlue ){
-            notific.state(State.BLUE);
+        State state = null;
+        int fitCount=0;
+        for( PixelStats ps : colors ){
+            boolean isColor = ps.numClose > numAll * 0.1;
+            if( isColor ){
+                state = ps.state;
+                fitCount++;
+            }
+        }
+        if( fitCount >= 2 ){
+            state=null;
+        }
+
+        if( state!=null ){
+            notific.state(state);
         }
 
         // process the image and compute its gradient
@@ -94,19 +125,15 @@ public class VideoProcessor {
 
         // render the output in a synthetic color image
         synchronized ( lockOutput ) {
-            VisualizeImageData.colorizeGradient(derivX, derivY, -1, output, storage);
-            //ConvertBitmap.multiToBitmap(yuv.readBuf, output, storage);
-            //ConvertBitmap.multiToBitmap(rgb, output, storage);
-            //multiToBitmap_F32(rgb, storage, output);
            ConvertBitmap.multiToBitmap(rgbInt.readBuf, output, storage);
-            int w = output.getWidth();
-            for( int y=100; y<110; y++ ) {
-                for (int x = 0; x < w - 1; x++) {
-                    if( isBlue ) {
-                      output.setPixel(x, y, Color.BLUE);
-                    }
-                }
-            }
+           if( state != null ) {
+               int w = output.getWidth();
+               for (int y = 100; y < 110; y++) {
+                   for (int x = 0; x < w - 1; x++) {
+                      output.setPixel(x, y, state.color);
+                   }
+               }
+           }
         }
 
     }

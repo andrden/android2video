@@ -35,6 +35,7 @@ import android.util.Log;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import boofcv.abst.filter.derivative.ImageGradient;
 import boofcv.alg.color.ColorYuv;
@@ -58,11 +59,11 @@ import java.util.List;
  * @author Peter Abeles
  */
 public class VideoActivity extends Activity implements Camera.PreviewCallback {
-    Handler handler;
     // camera and display objects
     private Camera mCamera;
     private Visualization mDraw;
     private CameraPreview mPreview;
+    Sounds sounds;
     Notific notific;
     VideoProcessor videoProcessor;
 
@@ -75,7 +76,6 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
     // Front facing cameras need to be flipped to appear correctly
     boolean flipHorizontal;
 
-    Sounds sounds;
 
     public void click1(View view) {
         sounds.sound(State.CLICK);
@@ -85,10 +85,10 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         sounds = new Sounds(this);
 
-        handler=new Handler();
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.video);
 
