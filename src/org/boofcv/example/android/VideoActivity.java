@@ -36,6 +36,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.CheckBox;
 import android.widget.FrameLayout;
 import boofcv.abst.filter.derivative.ImageGradient;
 import boofcv.alg.color.ColorYuv;
@@ -77,10 +78,18 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
     boolean flipHorizontal;
 
 
+
     public void click1(View view) {
         sounds.sound(State.CLICK);
     }
 
+    public void pixelsCheckboxClicked(View view){
+        videoProcessor.setShowPixels( ((CheckBox)view).isChecked() );
+    }
+
+    public void soundCheckboxClicked(View view){
+        sounds.setEnabled( ((CheckBox)view).isChecked() );
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {

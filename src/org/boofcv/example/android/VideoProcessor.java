@@ -8,7 +8,6 @@ import boofcv.abst.filter.derivative.ImageGradient;
 import boofcv.alg.misc.GImageMiscOps;
 import boofcv.android.ConvertBitmap;
 import boofcv.android.ConvertNV21;
-import boofcv.android.VisualizeImageData;
 import boofcv.factory.filter.derivative.FactoryDerivative;
 import boofcv.struct.image.*;
 
@@ -21,6 +20,8 @@ public class VideoProcessor {
     //private BufRW<ImageUInt8> gray;
     //private BufRW<MultiSpectral<ImageFloat32>> yuv;
     private BufRW<MultiSpectral<ImageUInt8>> rgbInt;
+
+    volatile boolean showPixels = false;
 
 
     //private ImageSInt16 derivX,derivY;
@@ -63,16 +64,18 @@ public class VideoProcessor {
 
     class PixelStats{
         State state;
-        RGBi target;
+        //RGBi target;
+        ColorSet colorSet;
         int numClose=0;
 
-        PixelStats(State state, RGBi target) {
+        PixelStats(State state, ColorSet colorSet) {
             this.state = state;
-            this.target = target;
+            this.colorSet = colorSet;
         }
 
         void update(RGBi pixel){
-            if( close(pixel, target) ){
+            //if( close(pixel, target) ){
+            if( colorSet.match(pixel) ){
                 numClose++;
             }
         }
@@ -90,9 +93,13 @@ public class VideoProcessor {
         }
 
         PixelStats[] colors = {
-            new PixelStats(State.RED, new RGBi(255,0,0)),
-            new PixelStats(State.GREEN, new RGBi(0,255,0)),
-            new PixelStats(State.BLUE, new RGBi(0,0,255)),
+//            new PixelStats(State.RED, new RGBi(255,0,0)),
+//            new PixelStats(State.GREEN, new RGBi(0,255,0)),
+//            new PixelStats(State.BLUE, new RGBi(0,0,255)),
+
+                new PixelStats(State.RED, ColorSet.RED),
+                new PixelStats(State.GREEN, ColorSet.GREEN),
+                new PixelStats(State.BLUE, ColorSet.BLUE),
         };
         RGBi pixel = new RGBi();
 
@@ -106,7 +113,7 @@ public class VideoProcessor {
         State state = null;
         int fitCount=0;
         for( PixelStats ps : colors ){
-            boolean isColor = ps.numClose > numAll * 0.1;
+            boolean isColor = ps.numClose > numAll * 0.2;
             if( isColor ){
                 state = ps.state;
                 fitCount++;
@@ -116,9 +123,7 @@ public class VideoProcessor {
             state=null;
         }
 
-        if( state!=null ){
-            notific.state(state);
-        }
+        notific.state(state);
 
         // process the image and compute its gradient
        // gradient.process(gray.readBuf,derivX,derivY);
@@ -126,10 +131,30 @@ public class VideoProcessor {
         // render the output in a synthetic color image
         synchronized ( lockOutput ) {
            ConvertBitmap.multiToBitmap(rgbInt.readBuf, output, storage);
+           if( showPixels ){
+               for( int y=0; y<output.getHeight(); y++ ){
+                   for( int x=0; x<output.getWidth(); x++ ){
+                       int c = output.getPixel(x, y);
+                       pixel.r = Color.red(c);
+                       pixel.g = Color.green(c);
+                       pixel.b = Color.blue(c);
+
+                       if( ColorSet.RED.match(pixel) ){
+                           output.setPixel(x, y, Color.RED);
+                       }
+                       if( ColorSet.GREEN.match(pixel) ){
+                           output.setPixel(x, y, Color.GREEN);
+                       }
+                       if( ColorSet.BLUE.match(pixel) ){
+                           output.setPixel(x, y, Color.BLUE);
+                       }
+                   }
+               }
+           }
            if( state != null ) {
                int w = output.getWidth();
                for (int y = 100; y < 110; y++) {
-                   for (int x = 0; x < w - 1; x++) {
+                   for (int x = 0; x < w; x++) {
                       output.setPixel(x, y, state.color);
                    }
                }
@@ -145,19 +170,6 @@ public class VideoProcessor {
         }
 
         RGBf(float r, float g, float b) {
-            this.r = r;
-            this.g = g;
-            this.b = b;
-        }
-    }
-
-    static class RGBi{
-        int r,g,b;
-
-        RGBi() {
-        }
-
-        RGBi(int r, int g, int b) {
             this.r = r;
             this.g = g;
             this.b = b;
@@ -270,4 +282,7 @@ public class VideoProcessor {
 
     }
 
+    public void setShowPixels(boolean showPixels) {
+        this.showPixels = showPixels;
+    }
 }
