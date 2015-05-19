@@ -26,6 +26,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.hardware.Camera;
 import android.os.Bundle;
+import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.view.View;
@@ -35,6 +36,7 @@ import android.widget.CheckBox;
 import android.widget.FrameLayout;
 
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Demonstration of how to process a video stream on an Android device using BoofCV.  Most of the code below
@@ -54,6 +56,7 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
     Sounds sounds;
     Notific notific;
     VideoProcessor videoProcessor;
+    private TextToSpeech tts;
 
 
     // Thread where image data is processed
@@ -86,6 +89,7 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
         if (flashModes!=null && flashModes.contains(Camera.Parameters.FLASH_MODE_TORCH)){
             if( checked ) {
                 cameraParms.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
+                tts.speak("Flashlight", TextToSpeech.QUEUE_FLUSH, null);
             }else{
                 cameraParms.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
             }
@@ -100,6 +104,26 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         sounds = new Sounds(this);
+        tts = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if (status == TextToSpeech.SUCCESS) {
+
+                    int result = tts.setLanguage(Locale.US);
+
+                    if (result == TextToSpeech.LANG_MISSING_DATA
+                            || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        Log.e("TTS", "This Language is not supported");
+                    } else {
+                        //btnSpeak.setEnabled(true);
+                        //speakOut();
+                    }
+
+                } else {
+                    Log.e("TTS", "Initilization Failed!");
+                }
+            }
+        });
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.video);
@@ -114,6 +138,16 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
 
         preview.addView(mPreview);
         preview.addView(mDraw);
+    }
+
+    @Override
+    public void onDestroy() {
+        // Don't forget to shutdown tts!
+        if (tts != null) {
+            tts.stop();
+            tts.shutdown();
+        }
+        super.onDestroy();
     }
 
     @Override
