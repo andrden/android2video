@@ -21,16 +21,11 @@ package org.boofcv.example.android;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.hardware.Camera;
-import android.media.AudioManager;
-import android.media.SoundPool;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.view.View;
@@ -38,16 +33,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.CheckBox;
 import android.widget.FrameLayout;
-import boofcv.abst.filter.derivative.ImageGradient;
-import boofcv.alg.color.ColorYuv;
-import boofcv.alg.misc.GImageMiscOps;
-import boofcv.android.ConvertBitmap;
-import boofcv.android.ConvertNV21;
-import boofcv.android.VisualizeImageData;
-import boofcv.factory.filter.derivative.FactoryDerivative;
-import boofcv.struct.image.*;
 
-import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -62,6 +48,7 @@ import java.util.List;
 public class VideoActivity extends Activity implements Camera.PreviewCallback {
     // camera and display objects
     private Camera mCamera;
+    Camera.Parameters cameraParms;
     private Visualization mDraw;
     private CameraPreview mPreview;
     Sounds sounds;
@@ -88,7 +75,23 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
     }
 
     public void soundCheckboxClicked(View view){
-        sounds.setEnabled( ((CheckBox)view).isChecked() );
+        sounds.setEnabled(((CheckBox) view).isChecked());
+    }
+
+    public void flashCheckboxClicked(View view){
+        boolean checked = ((CheckBox) view).isChecked();
+
+        //Check Whether device supports AutoFlash, If you YES then set AutoFlash
+        List<String> flashModes = cameraParms.getSupportedFlashModes();
+        if (flashModes!=null && flashModes.contains(Camera.Parameters.FLASH_MODE_TORCH)){
+            if( checked ) {
+                cameraParms.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
+            }else{
+                cameraParms.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
+            }
+        }
+        mCamera.setParameters(cameraParms);
+        mCamera.startPreview();
     }
 
     @Override
@@ -144,14 +147,14 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
         // Open and configure the camera
         mCamera = selectAndOpenCamera();
 
-        Camera.Parameters param = mCamera.getParameters();
+        cameraParms = mCamera.getParameters();
 
         // Select the preview size closest to 320x240
         // Smaller images are recommended because some computer vision operations are very expensive
-        List<Camera.Size> sizes = param.getSupportedPreviewSizes();
+        List<Camera.Size> sizes = cameraParms.getSupportedPreviewSizes();
         Camera.Size s = sizes.get(closest(sizes,320,240));
-        param.setPreviewSize(s.width,s.height);
-        mCamera.setParameters(param);
+        cameraParms.setPreviewSize(s.width, s.height);
+        mCamera.setParameters(cameraParms);
 
         Log.w("VideoActivity", "chosen preview size "+s.width + " x "+s.height);
 

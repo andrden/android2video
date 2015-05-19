@@ -86,10 +86,11 @@ public class VideoProcessor {
         //yuv.syncSwapBufs();
         rgbInt.syncSwapBufs();
 
+        MultiSpectral<ImageUInt8> imgBuf = rgbInt.readBuf;
         if( flipHorizontal ) {
           //  GImageMiscOps.flipHorizontal(gray.readBuf);
             //GImageMiscOps.flipHorizontal(yuv.readBuf);
-            GImageMiscOps.flipHorizontal(rgbInt.readBuf);
+            GImageMiscOps.flipHorizontal(imgBuf);
         }
 
         PixelStats[] colors = {
@@ -103,11 +104,22 @@ public class VideoProcessor {
         };
         RGBi pixel = new RGBi();
 
-        int numAll = rgbInt.readBuf.getBand(0).data.length;
+        int numAll = imgBuf.getBand(0).data.length;
         for( int i=0; i<numAll; i++ ){
-            get(rgbInt.readBuf, i, pixel);
+            get(imgBuf, i, pixel);
             for( PixelStats ps : colors ){
                 ps.update(pixel);
+            }
+            if( showPixels ){
+                if( ColorSet.RED.match(pixel) ){
+                    set(imgBuf, i, 255,0,0);
+                }
+                if( ColorSet.GREEN.match(pixel) ){
+                    set(imgBuf, i, 0,255,0);
+                }
+                if( ColorSet.BLUE.match(pixel) ){
+                    set(imgBuf, i, 0,0,255);
+                }
             }
         }
         State state = null;
@@ -130,27 +142,7 @@ public class VideoProcessor {
 
         // render the output in a synthetic color image
         synchronized ( lockOutput ) {
-           ConvertBitmap.multiToBitmap(rgbInt.readBuf, output, storage);
-           if( showPixels ){
-               for( int y=0; y<output.getHeight(); y++ ){
-                   for( int x=0; x<output.getWidth(); x++ ){
-                       int c = output.getPixel(x, y);
-                       pixel.r = Color.red(c);
-                       pixel.g = Color.green(c);
-                       pixel.b = Color.blue(c);
-
-                       if( ColorSet.RED.match(pixel) ){
-                           output.setPixel(x, y, Color.RED);
-                       }
-                       if( ColorSet.GREEN.match(pixel) ){
-                           output.setPixel(x, y, Color.GREEN);
-                       }
-                       if( ColorSet.BLUE.match(pixel) ){
-                           output.setPixel(x, y, Color.BLUE);
-                       }
-                   }
-               }
-           }
+           ConvertBitmap.multiToBitmap(imgBuf, output, storage);
            if( state != null ) {
                int w = output.getWidth();
                for (int y = 100; y < 110; y++) {
@@ -234,6 +226,11 @@ public class VideoProcessor {
         dest.r = img.getBand(0).data[idx] & 0xFF;
         dest.g = img.getBand(1).data[idx] & 0xFF;
         dest.b = img.getBand(2).data[idx] & 0xFF;
+    }
+    void set(MultiSpectral<ImageUInt8> img, int idx, int r, int g, int b){
+        img.getBand(0).data[idx] = (byte)(r & 0xFF) ;
+        img.getBand(1).data[idx] = (byte)(g & 0xFF);
+        img.getBand(2).data[idx] = (byte)(b & 0xFF);
     }
 
     boolean close(RGBf c1 , RGBf c2){

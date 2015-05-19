@@ -1,5 +1,9 @@
 package org.boofcv.example.android;
 
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Created by denny on 5/18/15.
  */
@@ -21,11 +25,13 @@ public enum ColorSet {
 
 
     static void parse(boolean[][][] dest, String src){
+        Set<String> srcSet = new HashSet<String>(Arrays.asList(src.split("[, ]+")));
+
         for( int r=0; r<255; r+=SHIFT){
             for( int g=0; g<255; g+=SHIFT){
                 for( int b=0; b<255; b+=SHIFT){
                     String key = r+"_"+g+"_"+b;
-                    if( src.contains(key+"=true") ){
+                    if( srcSet.contains(key+"=true") ){
                         dest[r/SHIFT][g/SHIFT][b/SHIFT] = true;
                     }
                 }
