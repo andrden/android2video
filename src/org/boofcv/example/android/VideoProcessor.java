@@ -94,13 +94,10 @@ public class VideoProcessor {
         }
 
         PixelStats[] colors = {
-//            new PixelStats(State.RED, new RGBi(255,0,0)),
-//            new PixelStats(State.GREEN, new RGBi(0,255,0)),
-//            new PixelStats(State.BLUE, new RGBi(0,0,255)),
-
                 new PixelStats(State.RED, ColorSet.RED),
                 new PixelStats(State.GREEN, ColorSet.GREEN),
                 new PixelStats(State.BLUE, ColorSet.BLUE),
+                new PixelStats(State.YELLOW, ColorSet.YELLOW),
         };
         RGBi pixel = new RGBi();
 
@@ -111,14 +108,11 @@ public class VideoProcessor {
                 ps.update(pixel);
             }
             if( showPixels ){
-                if( ColorSet.RED.match(pixel) ){
-                    set(imgBuf, i, 255,0,0);
-                }
-                if( ColorSet.GREEN.match(pixel) ){
-                    set(imgBuf, i, 0,255,0);
-                }
-                if( ColorSet.BLUE.match(pixel) ){
-                    set(imgBuf, i, 0,0,255);
+                for( PixelStats ps : colors ){
+                    if( ps.colorSet.match(pixel) ){
+                        int c = ps.state.color;
+                        set(imgBuf, i, Color.red(c), Color.green(c), Color.blue(c));
+                    }
                 }
             }
         }

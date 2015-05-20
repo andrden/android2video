@@ -93,6 +93,8 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
             }else{
                 cameraParms.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
             }
+        }else{
+            tts.speak("No flashlight in this phone", TextToSpeech.QUEUE_FLUSH, null);
         }
         mCamera.setParameters(cameraParms);
         mCamera.startPreview();
@@ -103,7 +105,6 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        sounds = new Sounds(this);
         tts = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
@@ -124,6 +125,7 @@ public class VideoActivity extends Activity implements Camera.PreviewCallback {
                 }
             }
         });
+        sounds = new Sounds(this, tts);
 
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.video);

@@ -9,14 +9,23 @@ enum State {
     RED(R.raw.red, Color.RED),
     GREEN(R.raw.green, Color.GREEN),
     BLUE(R.raw.blue, Color.BLUE),
+    YELLOW("yellow", Color.YELLOW),
 
     CLICK(R.raw.sndclick1, Color.WHITE)
     ;
-    final int resid;
+    final Integer resid;
+    final String word;
     int color;
 
     State(int resid, int color) {
         this.resid = resid;
+        this.color = color;
+        word=null;
+    }
+
+    State(String word, int color) {
+        resid=null;
+        this.word = word;
         this.color = color;
     }
 }
