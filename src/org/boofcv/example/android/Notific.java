@@ -16,8 +16,8 @@ public class Notific {
     State newState=null;
     long newStateT0;
 
+    State said;
     long silentTill=0;
-    long lastState=0;
 
     public Notific(Sounds s) {
         sounds = s;
@@ -28,12 +28,17 @@ public class Notific {
             newState = state;
             newStateT0 = System.currentTimeMillis();
         }
-        if( state!=null && System.currentTimeMillis() - newStateT0 > 300 ) {
-            if (System.currentTimeMillis() > silentTill && System.currentTimeMillis() - lastState > 1000) {
-                sounds.sound(state);
-                silentTill = System.currentTimeMillis() + 3000;
+        if( System.currentTimeMillis() - newStateT0 > 300 && state!=said ) {
+            // we are steady in this 'state'
+            if( state!=null ) {
+                if (System.currentTimeMillis() > silentTill) {
+                    sounds.sound(state);
+                    said = state;
+                    silentTill = System.currentTimeMillis() + 2000;
+                }
+            }else{
+                said=null; // reset
             }
-            lastState = System.currentTimeMillis();
         }
     }
 
